@@ -390,23 +390,63 @@ function daysUntil(dateText: string) {
   return Math.floor((date.getTime() - Date.now()) / 86_400_000);
 }
 
+function domainSignals(profile: StartupProfile) {
+  const profileText = [profile.industry, profile.technology, profile.coreProblem, profile.targetCustomers, ...profile.keywords, ...profile.governmentTerms].join(" ").toLowerCase();
+  if (/health|clinical|hospital|nurs|medical|patient/.test(profileText)) {
+    return {
+      core: ["health", "clinical", "hospital", "nurs", "medical", "patient", "health information technology"],
+      agencies: ["hhs", "nih", "ahrq", "hrsa", "cms", "va", "cdc", "fda"],
+      mismatch: ["feral swine", "immigration", "foreign", "mozambique", "tunisia", "greece", "egypt", "scholarship for service", "stem education"],
+    };
+  }
+  if (/water|wastewater|utility|leak|climate|environment/.test(profileText)) {
+    return {
+      core: ["water loss", "non-revenue water", "water utility", "municipal water", "leak detection", "water infrastructure", "wastewater", "watersmart"],
+      agencies: ["epa", "reclamation", "watersmart", "rural utilities", "usda", "doe"],
+      mismatch: ["feral swine", "invasive species", "immigration", "foreign", "mozambique", "tunisia", "greece", "egypt", "preschool", "trafficking"],
+    };
+  }
+  if (/cyber|security|threat|network defense/.test(profileText)) {
+    return {
+      core: ["cybersecurity", "cyber security", "threat detection", "network defense", "information security", "critical infrastructure"],
+      agencies: ["dhs", "cisa", "defense", "dod", "nist", "nsf"],
+      mismatch: ["foreign", "mozambique", "tunisia", "greece", "egypt", "scholarship", "education", "trafficking"],
+    };
+  }
+  if (/manufactur|aerospace|materials|component/.test(profileText)) {
+    return {
+      core: ["advanced manufacturing", "aerospace", "lightweight", "materials", "components", "manufacturing scale-up"],
+      agencies: ["nasa", "defense", "dod", "darpa", "doe", "nist", "nsf"],
+      mismatch: ["foreign", "mozambique", "tunisia", "greece", "egypt", "preschool", "trafficking"],
+    };
+  }
+  return {
+    core: Array.from(new Set([profile.industry, profile.technology, ...profile.keywords].map((term) => cleanText(String(term), 80).toLowerCase()).filter((term) => term.length >= 4))).slice(0, 10),
+    agencies: [],
+    mismatch: ["foreign", "mozambique", "tunisia", "greece", "egypt", "feral swine", "invasive species"],
+  };
+}
+
 export function scoreOpportunity(profile: StartupProfile, hit: GrantHit, detail?: Record<string, unknown>) {
   const synopsis = (detail?.synopsis || {}) as Record<string, unknown>;
-  const text = cleanText([hit.title, hit.agency, synopsis.synopsisDesc, detail?.opportunityTitle, profile.industry, profile.technology].join(" "), 6000).toLowerCase();
+  // Never include the startup's own description in the opportunity text. Doing so makes every result appear to match itself.
+  const text = cleanText([hit.title, hit.agency, hit.agencyName, synopsis.synopsisDesc, detail?.opportunityTitle].join(" "), 6000).toLowerCase();
+  const signals = domainSignals(profile);
   const terms = Array.from(new Set([...profile.keywords, ...profile.governmentTerms, profile.industry, profile.technology]))
     .map((term) => cleanText(String(term), 80).toLowerCase())
     .filter((term) => term.length >= 3);
   const matchedTerms = terms.filter((term) => text.includes(term)).slice(0, 6);
+  const coreMatches = signals.core.filter((term) => text.includes(term)).slice(0, 4);
+  const agencyMatches = signals.agencies.filter((term) => text.includes(term));
   const hasRAndD = /research|innovation|sbir|sttr|technology|commercialization|prototype/i.test(text);
   const hasSmallBusiness = /small business|business|commercial/i.test(text);
   const institutionFocused = /school|college|university|academic institution|nursing research center/i.test(text) && !/small business|commercialization|company|business/i.test(text);
-  const hasRelevantAgency = ["health", "medical", "clinical"].some((x) => profile.industry.toLowerCase().includes(x)) && /hhs|nih|cdc/i.test(text)
-    || ["water", "climate", "energy", "environment"].some((x) => profile.industry.toLowerCase().includes(x)) && /epa|energy|doe/i.test(text)
-    || ["cyber", "security"].some((x) => profile.industry.toLowerCase().includes(x)) && /dhs|defense|dod|nist/i.test(text);
-  const rawScore = Math.min(96, 22 + matchedTerms.length * 10 + (hasRAndD ? 15 : 0) + (hasSmallBusiness ? 10 : 0) + (hasRelevantAgency ? 12 : 0));
-  const score = institutionFocused ? Math.min(52, rawScore) : rawScore;
-  const tier: MatchTier = score >= 75 ? "Likely Fit" : score >= 55 ? "Potential Fit" : score >= 36 ? "Adjacent" : "Probably Not a Fit";
-  return { score, tier, matchedTerms, hasRAndD, hasSmallBusiness };
+  const hardMismatch = signals.mismatch.some((term) => text.includes(term));
+  const domainEvidence = coreMatches.length >= 2 || (coreMatches.length >= 1 && agencyMatches.length > 0);
+  const rawScore = 10 + matchedTerms.length * 4 + coreMatches.length * 16 + (agencyMatches.length ? 10 : 0) + (hasRAndD ? 8 : 0) + (hasSmallBusiness ? 5 : 0);
+  const score = Math.max(0, Math.min(96, rawScore - (domainEvidence ? 0 : 24) - (hardMismatch ? 35 : 0) - (institutionFocused ? 20 : 0)));
+  const tier: MatchTier = score >= 76 ? "Likely Fit" : score >= 55 ? "Potential Fit" : score >= 34 ? "Adjacent" : "Probably Not a Fit";
+  return { score, tier, matchedTerms: Array.from(new Set([...coreMatches, ...matchedTerms])).slice(0, 6), hasRAndD, hasSmallBusiness };
 }
 
 export function buildOpportunity(profile: StartupProfile, hit: GrantHit, detail?: Record<string, unknown>): Opportunity {

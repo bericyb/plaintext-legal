@@ -62,3 +62,37 @@ describe("PlainText research agent", () => {
     await expect(inspectPublicWebsite("http://127.0.0.1:3000")).resolves.toBeUndefined();
   });
 });
+
+
+describe("conservative domain-aware ranking", () => {
+  const waterProfile: StartupProfile = {
+    ...profile,
+    companyName: "LeakSense",
+    industry: "Smart water infrastructure",
+    technology: "Sensor and AI platform for municipal water-loss detection",
+    coreProblem: "Reduce non-revenue water and detect leaks for municipal utilities.",
+    targetCustomers: "Municipal water utilities",
+    keywords: ["water", "utility", "leak", "municipal", "sensor", "AI"],
+    governmentTerms: ["water infrastructure", "water loss", "water utility", "environmental technology"],
+  };
+
+  it("keeps a healthcare-specific opportunity above generic cybersecurity infrastructure", () => {
+    const relevant = scoreOpportunity(profile, { id: "health-1", title: "Clinical Workflow Innovation for Hospitals", agency: "National Institutes of Health" }, { synopsis: { synopsisDesc: "Small business research for hospital clinical workflow, nursing innovation, and health information technology.", applicantTypes: [{ description: "Small businesses" }] } });
+    const generic = scoreOpportunity(profile, { id: "cyber-1", title: "Cybersecurity Innovation for Cyberinfrastructure", agency: "National Science Foundation" }, { synopsis: { synopsisDesc: "Advance cybersecurity and privacy for scientific computing infrastructure and collaborative research." } });
+    expect(relevant.score).toBeGreaterThan(generic.score);
+    expect(relevant.tier).toBe("Likely Fit");
+    expect(generic.tier).not.toBe("Likely Fit");
+  });
+
+  it("rejects a water-quality-adjacent feral-swine program without water-loss evidence", () => {
+    const irrelevant = scoreOpportunity(waterProfile, { id: "swine-1", title: "Feral Swine Eradication and Control Pilot Program", agency: "USDA" }, { synopsis: { synopsisDesc: "Control invasive feral swine that threaten agriculture, ecosystems, and water quality." } });
+    expect(irrelevant.tier).toBe("Probably Not a Fit");
+    expect(irrelevant.score).toBeLessThan(34);
+  });
+
+  it("keeps a municipal water-loss program strong when domain and agency evidence agree", () => {
+    const relevant = scoreOpportunity(waterProfile, { id: "water-1", title: "WaterSMART Water Conservation and Efficiency Projects", agency: "Bureau of Reclamation" }, { synopsis: { synopsisDesc: "Support municipal water utilities implementing water-loss reduction, leak detection, and water infrastructure efficiency projects." } });
+    expect(relevant.tier).toBe("Likely Fit");
+    expect(relevant.matchedTerms).toEqual(expect.arrayContaining(["municipal water", "water infrastructure"]));
+  });
+});
