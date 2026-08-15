@@ -2,35 +2,29 @@
 
 ## Live demo
 
-**[plainlegal-biyp6u95.manus.space](https://plainlegal-biyp6u95.manus.space/)**
+**[plaintext.legal](https://plainlegal-biyp6u95.manus.space/)**
 
 > **Government support, made actionable.**
 
-PlainText.legal is an agent-led research desk for founders. Give it a company description or public domain and it turns the messy language of government programs into a short, evidence-backed plan: what may fit, what does not, what the opportunity is worth, and what to verify next.
-
-## The product in one sentence
-
 **PlainText.legal is the translation layer between how startups describe themselves and how public programs describe eligibility, technology, agencies, and funding.**
 
-## The killer workflow
+## Key Features
 
-A founder starts with one natural-language search. PlainText then:
-
+Using a Natural-language description or just your domain, PlainText.legal:
 - Builds a structured company profile from the founder’s description and optional public website context.
 - Translates startup language into government and agency terminology.
 - Searches live Grants.gov opportunities and retrieves official program details.
 - Adds USAspending award history, Utah recipient context, and SBIR/STTR evidence.
-- Applies conservative domain-aware ranking that penalizes semantic mismatches.
-- Runs a final relevance screen that can keep, demote, or remove weak results.
+- Applies domain-aware ranking relevant to what your company actually does.
 - Returns a Government Opportunity Map with fit tiers, dollar context, concerns, verification steps, and next actions.
 
-The result is not a keyword list. It is a research brief a founder can use immediately.
+It's a research brief a founder can use immediately.
 
-## Automatic support discovery is already wired
+## Automatic support discovery
 
-The automatic intake framework is implemented. The remaining dependency is access to approved data-integration partners that can provide authorized Utah registration events and `.ai` domain events.
+The automatic intake framework is implemented. Approved data-integration partners provide authorized Utah company registration events and `.ai` domain events.
 
-Once a partner connection is available, the operating flow is ready:
+This operating flow is ready:
 
 ```text
 Authorized company or domain event
@@ -48,13 +42,7 @@ Opportunity Map generated for the founder
 Delivery through an approved, permissioned workflow
 ```
 
-This is not a mock automation story. The research, ranking, screening, report, and opt-in delivery layers are running now. Partner integration is the final connection point for event-driven intake. The framework is designed for lawful, permissioned sources; it does not depend on scraping WHOIS data or collecting founder contact details without authorization.
-
-## Why the demo is compelling
-
-PlainText.legal makes the hard part visible. It shows the translated profile, the research trail, the official opportunity record, the funding amount, historical recipient evidence, the reason a result surfaced, and the reasons a result may be wrong. It is also willing to return **Probably Not a Fit** when the evidence is weak.
-
-That combination matters: a founder gets speed without giving up traceability, and a judge can see the difference between an AI-generated answer and an auditable research process.
+This skips founders needing to even think about government support and instead brings the opportunities right to them. 
 
 ## Data sources
 
@@ -94,7 +82,7 @@ pnpm install
 pnpm dev
 ```
 
-The research pipeline requires server-side database and LLM environment variables. Keep credentials out of client bundles and never commit `.env` files.
+The research pipeline requires server-side database and LLM environment variables.
 
 ## Accuracy boundary
 
