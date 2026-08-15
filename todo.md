@@ -1,0 +1,22 @@
+# Project TODO
+
+- [x] Establish the PlainText.legal visual system and public navigation with the exact founder-facing brand and tagline.
+- [x] Build a responsive landing page with a hero, free-scan CTA, value explanation, and sample Government Opportunity Map preview.
+- [x] Build the startup-profile intake with the exact free-text prompt, optional structured fields, extraction preview, and validation states.
+- [x] Implement a live unauthenticated Grants.gov Search2 integration with government-language query expansion and opportunity-detail retrieval.
+- [ ] Implement a SAM.gov Assistance Listings integration boundary with key-aware live fetching and a transparent unavailable-data state.
+- [x] Implement USAspending V2 historical-award queries including Utah recipient counts, total and median award statistics, similar recipients, and agency patterns.
+- [x] Add a reliable offline SBIR award and solicitation snapshot with technology-area matching and clearly labeled live-API enhancement readiness.
+- [x] Implement deterministic match ranking, the exact four required tiers, plain-language reasons, concerns, verification steps, and actionable next steps.
+- [x] Build the Government Opportunity Map report page with aggregate summary, ranked opportunity cards, historical context, citations, and required non-eligibility disclaimer.
+- [x] Build the Scan a company page that accepts a domain or Utah company name, inspects public landing-page content when available, and launches the same opportunity pipeline.
+- [x] Persist scans, reports, and opt-in founder email-to-report associations in the database with data-minimizing fields and consent state.
+- [x] Add an email-ready report delivery boundary with an explicit opt-in confirmation state and no unsolicited contact collection.
+- [x] Document the compliant future automation approach for licensed .ai-domain events and authorized Utah registration exports without promising WHOIS discovery coverage.
+- [x] Add unit tests for query expansion, score tiers, matching explanations, and report-persistence behavior.
+- [x] Verify desktop and mobile presentation, run tests and type checks, and prepare a concise hackathon demo and Manus launch guide.
+- [x] Add an optional public domain input to the primary founder intake and, with user initiation, use accessible landing-page text to enrich the company profile without overriding the founder’s description.
+- [x] Make the discovery workflow visibly agent-led: generate a research plan, translate founder language into government terminology, search multiple sources, investigate top candidates, organize evidence, and return a prioritized action plan rather than keyword results.
+- [x] Keep SAM.gov Assistance Listings as a clearly labeled optional enrichment path while SAM API-key issuance is unavailable; do not block live Grants.gov, USAspending, or SBIR-fallback research on it.
+- [x] Add a visible profile-extraction preview to the report so founders can inspect the parsed attributes and translated government terms alongside the research output.
+- [x] Add a dedicated demo-and-launch guide covering the demo script, live-data caveats, validation evidence, and Manus publishing steps.

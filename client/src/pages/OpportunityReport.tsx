@@ -1,0 +1,119 @@
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { trpc } from "@/lib/trpc";
+import { ArrowLeft, ArrowUpRight, Building2, CheckCircle2, ChevronDown, CircleAlert, ExternalLink, FileCheck2, Landmark, Loader2, Mail, MapPin, SearchCheck, Sparkles, TriangleAlert } from "lucide-react";
+import { Link, useLocation, useRoute } from "wouter";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+
+type Tier = "Likely Fit" | "Potential Fit" | "Adjacent" | "Probably Not a Fit";
+type ReportPayload = {
+  generatedAt: string;
+  profile: Record<string, unknown>;
+  researchPlan: { objective: string; searches: Array<{ query: string; reason: string; source: string }>; agenciesToInvestigate: string[]; verificationPriorities: string[] };
+  agentActivity: Array<{ label: string; detail: string; status: "complete" | "partial" }>;
+  summary: { opportunityCount: number; likelyFitCount: number; agencies: string[]; closingSoonCount: number };
+  opportunities: Array<{ id: string; number: string; title: string; agency: string; status: string; deadline: string; openDate: string; value: string; description: string; eligibility: string[]; sourceUrl: string; score: number; tier: Tier; matchedTerms: string[]; whyFit: string; concerns: string[]; verify: string[]; nextSteps: string[]; history?: { awardCount: number; utahAwardCount: number; utahRecipientCount: number; totalAwardAmount: number; medianAwardAmount: number; topRecipients: Array<{ name: string; amount: number; agency: string }>; agencyPatterns: string[]; note: string }; sbirEvidence: Array<{ title: string; agency: string; phase: string; year: string; amount: number; recipient: string; state: string; whyRelevant: string; sourceUrl: string }> }>;
+  historicalIntelligence: Array<{ searchTerm: string; awardCount: number; utahAwardCount: number; utahRecipientCount: number; totalAwardAmount: number; medianAwardAmount: number; topRecipients: Array<{ name: string; amount: number; agency: string }>; agencyPatterns: string[]; note: string }>;
+  sbirFallback: { matchedAwards: number; currentTopics?: Array<{ title: string; whyRelevant: string; sourceUrl: string }>; source: string; note: string };
+  notices: string[];
+  sourceNotes: Array<{ label: string; url: string }>;
+};
+
+const tierStyles: Record<Tier, string> = {
+  "Likely Fit": "bg-emerald-100 text-emerald-900 border-emerald-200",
+  "Potential Fit": "bg-amber-100 text-amber-900 border-amber-200",
+  "Adjacent": "bg-sky-100 text-sky-900 border-sky-200",
+  "Probably Not a Fit": "bg-stone-100 text-stone-700 border-stone-200",
+};
+
+function currency(value: number) {
+  if (!value) return "Not returned";
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 }).format(value);
+}
+
+function getCachedReport(reportId: string) {
+  try {
+    const raw = sessionStorage.getItem(`plaintext-report:${reportId}`);
+    return raw ? JSON.parse(raw) as ReportPayload : null;
+  } catch {
+    return null;
+  }
+}
+
+function Stat({ label, value, detail }: { label: string; value: string | number; detail: string }) {
+  return <div className="rounded-2xl border border-ink/10 bg-white p-4 shadow-[0_1px_0_rgba(20,38,38,.04)]">
+    <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45">{label}</div>
+    <div className="mt-2 font-display text-2xl font-semibold text-ink">{value}</div>
+    <div className="mt-1 text-xs leading-relaxed text-ink/55">{detail}</div>
+  </div>;
+}
+
+function DetailList({ icon, title, items, tone = "default" }: { icon: "check" | "alert" | "verify"; title: string; items: string[]; tone?: "default" | "warn" }) {
+  const Icon = icon === "check" ? CheckCircle2 : icon === "alert" ? TriangleAlert : FileCheck2;
+  return <div className="rounded-xl bg-paper p-4">
+    <div className={cn("mb-2 flex items-center gap-2 text-sm font-semibold", tone === "warn" ? "text-amber-900" : "text-ink")}><Icon className="h-4 w-4" /> {title}</div>
+    <ul className="space-y-2 text-sm leading-relaxed text-ink/70">{items.map((item, index) => <li className="flex gap-2" key={`${item}-${index}`}><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-moss" />{item}</li>)}</ul>
+  </div>;
+}
+
+function OpportunityCard({ opportunity, index }: { opportunity: ReportPayload["opportunities"][number]; index: number }) {
+  const [open, setOpen] = useState(index === 0);
+  return <article className="overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-[0_8px_28px_rgba(31,54,54,.06)]">
+    <button className="flex w-full flex-col gap-4 p-5 text-left transition hover:bg-paper/70 sm:flex-row sm:items-start sm:justify-between" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+      <div className="min-w-0">
+        <div className="mb-2 flex flex-wrap items-center gap-2"><span className={cn("rounded-full border px-2.5 py-1 text-xs font-bold", tierStyles[opportunity.tier])}>{opportunity.tier}</span><span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">{opportunity.number}</span></div>
+        <h3 className="font-display text-xl font-semibold leading-snug text-ink">{opportunity.title}</h3>
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink/60"><span className="inline-flex items-center gap-1.5"><Landmark className="h-3.5 w-3.5" />{opportunity.agency}</span><span>{opportunity.status}</span><span>Deadline: {opportunity.deadline}</span></div>
+      </div>
+      <div className="flex shrink-0 items-center gap-3"><div className="text-right"><div className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">Research score</div><div className="font-display text-2xl font-semibold text-moss">{opportunity.score}</div></div><ChevronDown className={cn("h-5 w-5 text-ink/45 transition-transform", open && "rotate-180")} /></div>
+    </button>
+    {open && <div className="border-t border-ink/10 p-5">
+      <div className="grid gap-5 lg:grid-cols-[1.25fr_.75fr]">
+        <div>
+          <p className="mb-4 text-[15px] leading-7 text-ink/70">{opportunity.description}</p>
+          <DetailList icon="check" title="Why the agent surfaced this" items={[opportunity.whyFit]} />
+          <div className="mt-4 grid gap-4 md:grid-cols-2"><DetailList icon="alert" title="Potential concerns" tone="warn" items={opportunity.concerns} /><DetailList icon="verify" title="What to verify" items={opportunity.verify} /></div>
+          <DetailList icon="check" title="Action plan" items={opportunity.nextSteps} />
+        </div>
+        <aside className="space-y-4">
+          <div className="rounded-xl bg-ink p-4 text-white"><div className="font-mono text-[10px] uppercase tracking-[.15em] text-white/50">Opportunity snapshot</div><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-3"><dt className="text-white/55">Potential value</dt><dd className="text-right font-medium">{opportunity.value}</dd></div><div className="flex justify-between gap-3"><dt className="text-white/55">Opening date</dt><dd className="text-right font-medium">{opportunity.openDate}</dd></div><div><dt className="mb-1 text-white/55">Official eligibility text</dt><dd className="text-xs leading-relaxed text-white/85">{opportunity.eligibility.join(" · ")}</dd></div></dl><a className="mt-5 flex items-center justify-between rounded-lg bg-white/10 px-3 py-2.5 text-sm font-semibold hover:bg-white/15" href={opportunity.sourceUrl} target="_blank" rel="noreferrer">Open official notice <ExternalLink className="h-4 w-4" /></a></div>
+          {opportunity.history && <div className="rounded-xl border border-moss/20 bg-moss/5 p-4"><div className="font-mono text-[10px] uppercase tracking-[.15em] text-moss">Historical signal · USAspending</div><div className="mt-3 grid grid-cols-2 gap-3"><div><div className="font-display text-xl font-semibold">{opportunity.history.utahAwardCount}</div><div className="text-xs text-ink/55">Utah awards returned</div></div><div><div className="font-display text-xl font-semibold">{opportunity.history.utahRecipientCount}</div><div className="text-xs text-ink/55">Utah recipients in sample</div></div><div><div className="font-display text-xl font-semibold">{currency(opportunity.history.medianAwardAmount)}</div><div className="text-xs text-ink/55">Median returned award</div></div><div><div className="font-display text-xl font-semibold">{currency(opportunity.history.totalAwardAmount)}</div><div className="text-xs text-ink/55">Total returned evidence</div></div></div><p className="mt-3 text-xs leading-relaxed text-ink/55">{opportunity.history.note}</p></div>}
+          {opportunity.sbirEvidence.length > 0 && <div className="rounded-xl border border-ink/10 p-4"><div className="font-mono text-[10px] uppercase tracking-[.15em] text-ink/50">R&D precedent · SBIR snapshot</div>{opportunity.sbirEvidence.map((award) => <div className="mt-3 border-t border-ink/10 pt-3 first:border-0 first:pt-0" key={`${award.title}-${award.year}`}><div className="text-sm font-semibold text-ink">{award.title}</div><div className="mt-1 text-xs text-ink/55">{award.agency} · {award.phase} · {award.year} · {currency(award.amount)}</div><p className="mt-2 text-xs leading-relaxed text-ink/65">{award.whyRelevant}</p></div>)}</div>}
+        </aside>
+      </div>
+    </div>}
+  </article>;
+}
+
+function EmailCapture({ reportId }: { reportId: string }) {
+  const [email, setEmail] = useState("");
+  const [complete, setComplete] = useState(false);
+  const optIn = trpc.opportunity.optInEmail.useMutation({ onSuccess: () => setComplete(true) });
+  const submit = (event: FormEvent) => { event.preventDefault(); optIn.mutate({ reportId, email }); };
+  return <section className="rounded-2xl bg-clay p-6 text-white md:flex md:items-center md:justify-between md:gap-8"><div className="max-w-xl"><div className="mb-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[.16em] text-white/55"><Mail className="h-3.5 w-3.5" /> Founder opt-in</div><h2 className="font-display text-2xl font-semibold">Keep this map within reach.</h2><p className="mt-2 text-sm leading-relaxed text-white/75">Opt in to associate this report with your email. PlainText.legal stores your consent for future report alerts; it does not collect email addresses from public company or domain records.</p></div>{complete ? <div className="mt-5 rounded-lg bg-white/15 px-4 py-3 text-sm font-semibold md:mt-0">Saved. You’re connected to this report.</div> : <form className="mt-5 flex max-w-md gap-2 md:mt-0" onSubmit={submit}><Input className="h-11 border-white/25 bg-white text-ink placeholder:text-ink/45" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@company.com" aria-label="Email address" /><Button className="h-11 bg-ink px-4 text-white hover:bg-ink/85" type="submit" disabled={optIn.isPending}>{optIn.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save report"}</Button></form>}</section>;
+}
+
+export default function OpportunityReport() {
+  const [, params] = useRoute("/report/:reportId");
+  const reportId = params?.reportId || "";
+  const cached = useMemo(() => reportId ? getCachedReport(reportId) : null, [reportId]);
+  const query = trpc.opportunity.getReport.useQuery({ reportId }, { enabled: Boolean(reportId), retry: false });
+  const [location] = useLocation();
+  const report = (query.data?.report || cached) as ReportPayload | null;
+  useEffect(() => { if (query.data?.report && reportId) sessionStorage.setItem(`plaintext-report:${reportId}`, JSON.stringify(query.data.report)); }, [query.data, reportId]);
+  if (!report && query.isLoading) return <main className="grid min-h-screen place-items-center bg-paper"><div className="text-center"><Loader2 className="mx-auto h-7 w-7 animate-spin text-moss" /><p className="mt-3 text-sm text-ink/60">Opening your Government Opportunity Map…</p></div></main>;
+  if (!report) return <main className="grid min-h-screen place-items-center bg-paper px-5"><div className="max-w-md text-center"><CircleAlert className="mx-auto h-9 w-9 text-clay" /><h1 className="mt-4 font-display text-3xl font-semibold">This report isn’t available.</h1><p className="mt-3 text-sm leading-relaxed text-ink/60">It may have expired from this browser before it was saved. Run a fresh research scan to generate a new map.</p><Link href="/"><Button className="mt-6 bg-moss text-white hover:bg-moss/90">Start a new scan</Button></Link></div></main>;
+  const profile = report.profile as { companyName?: string; industry?: string; location?: string; technology?: string; rAndD?: string; targetCustomers?: string; capitalNeed?: string; coreProblem?: string; governmentTerms?: string[]; websiteEvidence?: { url: string } };
+  return <div className="min-h-screen bg-paper text-ink"><header className="border-b border-ink/10 bg-paper/90 backdrop-blur"><div className="container flex h-16 items-center justify-between"><Link href="/" className="font-display text-xl font-semibold tracking-tight">PlainText<span className="text-moss">.legal</span></Link><div className="flex items-center gap-3"><a className="hidden text-sm font-medium text-ink/60 hover:text-ink sm:block" href="#method">Research method</a><Link href="/"><Button variant="outline" className="border-ink/15 bg-white text-ink hover:bg-paper"><ArrowLeft className="mr-2 h-4 w-4" /> New scan</Button></Link></div></div></header>
+    <main><section className="border-b border-ink/10 bg-ink py-10 text-white"><div className="container"><div className="font-mono text-[10px] uppercase tracking-[.18em] text-lime">Research complete · {new Date(report.generatedAt).toLocaleDateString()}</div><div className="mt-4 grid gap-6 lg:grid-cols-[1fr_auto]"><div><h1 className="font-display text-4xl font-semibold tracking-tight sm:text-5xl">Government Opportunity Map.</h1><p className="mt-3 max-w-2xl text-[15px] leading-7 text-white/72">An agent-organized research brief for <span className="font-semibold text-white">{profile.companyName || "your company"}</span>. It translates the company narrative into government terminology, investigates live opportunities, and turns evidence into next steps.</p></div><div className="flex items-end"><div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm"><div className="font-mono text-[10px] uppercase tracking-[.13em] text-white/45">Research objective</div><p className="mt-1 max-w-xs text-white/80">{report.researchPlan.objective}</p></div></div></div></div></section>
+      <section className="container py-8"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><Stat label="Live opportunities" value={report.summary.opportunityCount} detail="Ranked from live Grants.gov research" /><Stat label="Likely Fit" value={report.summary.likelyFitCount} detail="Highest research-confidence tier" /><Stat label="Agencies investigated" value={report.summary.agencies.length} detail={report.summary.agencies.slice(0, 2).join(" · ") || "Agency evidence not returned"} /><Stat label="Closing ≤90 days" value={report.summary.closingSoonCount} detail="Based on returned deadline data" /></div></section>
+      <section className="container pb-6"><div className="grid gap-6 lg:grid-cols-[.8fr_1.2fr]"><div className="rounded-2xl border border-ink/10 bg-white p-5"><div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-moss" /><h2 className="font-display text-xl font-semibold">What the agent understood</h2></div><p className="mt-1 text-xs leading-relaxed text-ink/50">Profile extraction preview — inspect and correct this interpretation before acting on any recommendation.</p><dl className="mt-5 grid gap-4 text-sm"><div><dt className="font-mono text-[10px] uppercase tracking-[.14em] text-ink/45">Core problem</dt><dd className="mt-1 leading-relaxed text-ink/75">{profile.coreProblem || "Not specified"}</dd></div><div className="grid grid-cols-2 gap-4"><div><dt className="font-mono text-[10px] uppercase tracking-[.14em] text-ink/45">Industry</dt><dd className="mt-1 font-medium">{profile.industry || "Not specified"}</dd></div><div><dt className="font-mono text-[10px] uppercase tracking-[.14em] text-ink/45">Location</dt><dd className="mt-1 font-medium">{profile.location || "Not specified"}</dd></div><div><dt className="font-mono text-[10px] uppercase tracking-[.14em] text-ink/45">Technology</dt><dd className="mt-1 font-medium">{String(profile.technology || "Not specified")}</dd></div><div><dt className="font-mono text-[10px] uppercase tracking-[.14em] text-ink/45">R&amp;D signal</dt><dd className="mt-1 font-medium">{String(profile.rAndD || "Not specified")}</dd></div><div><dt className="font-mono text-[10px] uppercase tracking-[.14em] text-ink/45">Target customers</dt><dd className="mt-1 font-medium">{String(profile.targetCustomers || "Not specified")}</dd></div><div><dt className="font-mono text-[10px] uppercase tracking-[.14em] text-ink/45">Capital need</dt><dd className="mt-1 font-medium">{String(profile.capitalNeed || "Not specified")}</dd></div></div><div><dt className="font-mono text-[10px] uppercase tracking-[.14em] text-ink/45">Translated research language</dt><dd className="mt-2 flex flex-wrap gap-2">{(profile.governmentTerms || []).map((term) => <span className="rounded-full bg-moss/10 px-2.5 py-1 text-xs font-medium text-moss" key={term}>{term}</span>)}</dd></div>{profile.websiteEvidence?.url && <div className="text-xs text-ink/55">Public website evidence: <a className="underline hover:text-ink" href={profile.websiteEvidence.url} target="_blank" rel="noreferrer">{profile.websiteEvidence.url}</a></div>}</dl></div>
+        <div className="rounded-2xl border border-ink/10 bg-white p-5"><div className="flex items-center gap-2"><SearchCheck className="h-4 w-4 text-moss" /><h2 className="font-display text-xl font-semibold">Research trail</h2></div><div className="mt-5 space-y-0">{report.agentActivity.map((activity, index) => <div className="relative flex gap-4 pb-5 last:pb-0" key={activity.label}><div className="relative z-10 mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-moss text-white"><CheckCircle2 className="h-3.5 w-3.5" /></div>{index < report.agentActivity.length - 1 && <div className="absolute left-3 top-6 h-[calc(100%-16px)] w-px bg-ink/10" />}<div><div className="text-sm font-semibold">{activity.label}</div><p className="mt-1 text-sm leading-relaxed text-ink/60">{activity.detail}</p></div></div>)}</div></div></div></section>
+      <section className="container pb-8"><div className="mb-4 flex flex-wrap items-end justify-between gap-4"><div><div className="font-mono text-[10px] uppercase tracking-[.16em] text-moss">Prioritized research</div><h2 className="mt-1 font-display text-3xl font-semibold">Opportunities to investigate</h2></div><p className="max-w-md text-sm leading-relaxed text-ink/60">Scores organize research effort. They are not eligibility decisions or funding predictions.</p></div>{report.opportunities.length ? <div className="space-y-4">{report.opportunities.map((opportunity, index) => <OpportunityCard key={opportunity.id} opportunity={opportunity} index={index} />)}</div> : <div className="rounded-2xl border border-dashed border-ink/20 bg-white p-8 text-center"><Building2 className="mx-auto h-7 w-7 text-ink/35" /><h3 className="mt-3 font-display text-xl font-semibold">No strong live match was returned.</h3><p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-ink/60">That is useful information. The agent did not invent a fit. Add more detail about your technology, R&D work, customer, and desired use of funds, then run another scan.</p></div>}</section>
+      <section className="container pb-8"><EmailCapture reportId={reportId} /></section>
+      <section className="border-y border-ink/10 bg-white py-9" id="method"><div className="container"><div className="grid gap-7 lg:grid-cols-[.8fr_1.2fr]"><div><div className="font-mono text-[10px] uppercase tracking-[.16em] text-moss">Evidence layer</div><h2 className="mt-2 font-display text-3xl font-semibold">Historical context, not a hunch.</h2><p className="mt-3 text-sm leading-relaxed text-ink/65">PlainText.legal checks public award history to help a founder see who has received related government support, which agencies recur, and how Utah appears in returned results.</p></div><div className="grid gap-3 sm:grid-cols-2">{report.historicalIntelligence.slice(0, 2).map((history) => <div className="rounded-xl bg-paper p-4" key={history.searchTerm}><div className="font-mono text-[10px] uppercase tracking-[.13em] text-ink/45">{history.searchTerm}</div><div className="mt-3 grid grid-cols-2 gap-3"><div><div className="font-display text-xl font-semibold">{history.utahAwardCount}</div><div className="text-xs text-ink/55">Utah awards</div></div><div><div className="font-display text-xl font-semibold">{currency(history.medianAwardAmount)}</div><div className="text-xs text-ink/55">Median returned award</div></div></div><p className="mt-3 text-xs leading-relaxed text-ink/55">Agency pattern: {history.agencyPatterns.join(" · ") || "Not returned"}</p></div>)}</div></div></div></section>
+      <section className="container py-8"><div className="grid gap-4 lg:grid-cols-2"><div className="rounded-2xl border border-ink/10 bg-white p-5"><div className="font-mono text-[10px] uppercase tracking-[.15em] text-moss">SBIR / STTR R&D layer</div><h2 className="mt-2 font-display text-2xl font-semibold">{report.sbirFallback.source}</h2><p className="mt-3 text-sm leading-relaxed text-ink/65">{report.sbirFallback.note}</p><div className="mt-4 inline-flex rounded-lg bg-moss/10 px-3 py-2 text-sm font-semibold text-moss">{report.sbirFallback.matchedAwards} related historical award{report.sbirFallback.matchedAwards === 1 ? "" : "s"} matched</div>{report.sbirFallback.currentTopics?.length ? <div className="mt-5 border-t border-ink/10 pt-4"><div className="font-mono text-[10px] uppercase tracking-[.14em] text-ink/45">Open SBIR topic context</div>{report.sbirFallback.currentTopics.map((topic) => <div className="mt-3" key={topic.title}><a className="text-sm font-semibold text-ink underline decoration-moss/30 underline-offset-4 hover:text-moss" href={topic.sourceUrl} target="_blank" rel="noreferrer">{topic.title} <ArrowUpRight className="inline h-3.5 w-3.5" /></a><p className="mt-1 text-xs leading-relaxed text-ink/60">{topic.whyRelevant}</p></div>)}</div> : null}</div><div className="rounded-2xl border border-amber-200 bg-amber-50 p-5"><div className="flex items-center gap-2 text-amber-900"><CircleAlert className="h-4 w-4" /><span className="font-mono text-[10px] uppercase tracking-[.15em]">Important</span></div><h2 className="mt-2 font-display text-2xl font-semibold">Use this as a research brief.</h2><ul className="mt-3 space-y-2 text-sm leading-relaxed text-amber-950/70">{report.notices.map((notice) => <li className="flex gap-2" key={notice}><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-700" />{notice}</li>)}</ul></div></div></section>
+      <footer className="border-t border-ink/10 bg-white py-8"><div className="container flex flex-col gap-4 text-sm text-ink/60 sm:flex-row sm:items-end sm:justify-between"><div><div className="font-display text-lg font-semibold text-ink">PlainText<span className="text-moss">.legal</span></div><p className="mt-1 max-w-lg text-xs leading-relaxed">Government support, made actionable. Public data sources are linked for verification.</p></div><div className="flex flex-wrap gap-x-4 gap-y-2">{report.sourceNotes.map((source) => <a key={source.label} className="inline-flex items-center gap-1 underline decoration-ink/20 underline-offset-4 hover:text-ink" href={source.url} target="_blank" rel="noreferrer">{source.label}<ArrowUpRight className="h-3 w-3" /></a>)}</div></div></footer>
+    </main></div>;
+}

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertReport, InsertScan, InsertUser, reportEmailOptIns, reports, scans, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,43 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+export async function createScan(scan: InsertScan) {
+  const db = await getDb();
+  if (!db) return undefined;
+  await db.insert(scans).values(scan);
+  const result = await db.select().from(scans).where(eq(scans.publicId, scan.publicId)).limit(1);
+  return result[0];
+}
+
+export async function markScanFailed(publicId: string, errorMessage: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(scans).set({ status: "failed", errorMessage }).where(eq(scans.publicId, publicId));
+}
+
+export async function completeScanAndCreateReport(scanPublicId: string, report: InsertReport) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const scan = (await db.select().from(scans).where(eq(scans.publicId, scanPublicId)).limit(1))[0];
+  if (!scan) return undefined;
+  await db.update(scans).set({ status: "complete" }).where(eq(scans.id, scan.id));
+  await db.insert(reports).values({ ...report, scanId: scan.id });
+  const saved = await db.select().from(reports).where(eq(reports.publicId, report.publicId)).limit(1);
+  return saved[0];
+}
+
+export async function getPublicReport(publicId: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const report = (await db.select().from(reports).where(eq(reports.publicId, publicId)).limit(1))[0];
+  if (!report) return undefined;
+  const scan = (await db.select().from(scans).where(eq(scans.id, report.scanId)).limit(1))[0];
+  return { report, scan };
+}
+
+export async function addReportEmailOptIn(reportId: number, email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  await db.insert(reportEmailOptIns).values({ reportId, email: email.trim().toLowerCase(), status: "active" });
+  return { success: true } as const;
+}
