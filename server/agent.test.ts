@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildOpportunity, fallbackProfile, findSbirEvidence, findSbirTopics, inspectPublicWebsite, scoreOpportunity, type StartupProfile } from "./agent";
+import { buildOpportunity, fallbackProfile, findSbirEvidence, findSbirTopics, getSamEnrichment, inspectPublicWebsite, scoreOpportunity, type StartupProfile } from "./agent";
 
 const profile: StartupProfile = {
   companyName: "NurseFlow",
@@ -46,6 +46,16 @@ describe("PlainText research agent", () => {
     expect(fallback.governmentTerms).toContain("digital health");
     expect(fallback.governmentTerms).toContain("artificial intelligence");
     expect(fallback.governmentTerms).toContain("small business innovation research");
+  });
+
+  it("keeps the core research flow available when SAM.gov key issuance is unavailable", async () => {
+    const priorKey = process.env.SAM_API_KEY;
+    delete process.env.SAM_API_KEY;
+    const enrichment = await getSamEnrichment(profile, { objective: "Research", searches: [{ query: "digital health assistance", reason: "Broader assistance", source: "SAM.gov" }], agenciesToInvestigate: [], verificationPriorities: [] });
+    process.env.SAM_API_KEY = priorKey;
+    expect(enrichment.status).toBe("unavailable");
+    expect(enrichment.listings).toEqual([]);
+    expect(enrichment.message).toContain("Grants.gov, USAspending, and SBIR fallback research remain active");
   });
 
   it("rejects a private local address before attempting public website inspection", async () => {

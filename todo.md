@@ -4,7 +4,7 @@
 - [x] Build a responsive landing page with a hero, free-scan CTA, value explanation, and sample Government Opportunity Map preview.
 - [x] Build the startup-profile intake with the exact free-text prompt, optional structured fields, extraction preview, and validation states.
 - [x] Implement a live unauthenticated Grants.gov Search2 integration with government-language query expansion and opportunity-detail retrieval.
-- [ ] Implement a SAM.gov Assistance Listings integration boundary with key-aware live fetching and a transparent unavailable-data state.
+- [x] Implement a SAM.gov Assistance Listings integration boundary with key-aware live fetching and a transparent unavailable-data state.
 - [x] Implement USAspending V2 historical-award queries including Utah recipient counts, total and median award statistics, similar recipients, and agency patterns.
 - [x] Add a reliable offline SBIR award and solicitation snapshot with technology-area matching and clearly labeled live-API enhancement readiness.
 - [x] Implement deterministic match ranking, the exact four required tiers, plain-language reasons, concerns, verification steps, and actionable next steps.

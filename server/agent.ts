@@ -74,6 +74,13 @@ export type SbirTopicEvidence = {
   sourceUrl: string;
 };
 
+export type SamEnrichment = {
+  status: "available" | "unavailable" | "partial";
+  searchTerms: string[];
+  message: string;
+  listings: Array<{ title: string; agency: string; listingId: string; description: string; sourceUrl: string }>;
+};
+
 export type Opportunity = {
   id: string;
   number: string;
@@ -106,6 +113,7 @@ export type AgentReport = {
   opportunities: Opportunity[];
   historicalIntelligence: HistoryEvidence[];
   sbirFallback: { status: "ready"; matchedAwards: number; currentTopics: SbirTopicEvidence[]; source: string; note: string };
+  samEnrichment: SamEnrichment;
   notices: string[];
   sourceNotes: Array<{ label: string; url: string }>;
 };
@@ -505,10 +513,39 @@ function toSbirTopicEvidence(topic: SbirSnapshotTopic, overlap: string[]): SbirT
   return { title: topic.title, whyRelevant: `This currently open SBIR/STTR topic page shares ${overlap.slice(0, 4).join(", ")} with the translated company profile. Review the agency's official solicitation before acting.`, sourceUrl: topic.sourceUrl };
 }
 
+export async function getSamEnrichment(profile: StartupProfile, plan: ResearchPlan): Promise<SamEnrichment> {
+  const searchTerms = Array.from(new Set([...profile.governmentTerms, ...plan.searches.filter((search) => search.source === "SAM.gov").map((search) => search.query)])).slice(0, 6);
+  const apiKey = process.env.SAM_API_KEY;
+  if (!apiKey) {
+    return { status: "unavailable", searchTerms, message: "SAM.gov Assistance Listings is an optional broader-assistance layer. It is not queried in this report because public API-key issuance is currently unavailable. Grants.gov, USAspending, and SBIR fallback research remain active.", listings: [] };
+  }
+  try {
+    const url = new URL("https://api.sam.gov/assistance-listings/v1/search");
+    url.searchParams.set("api_key", apiKey);
+    url.searchParams.set("status", "Active");
+    url.searchParams.set("pageSize", "100");
+    const response = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error(`SAM.gov returned ${response.status}`);
+    const payload = await response.json() as { assistanceListingsData?: Array<Record<string, unknown>> };
+    const terms = searchTerms.flatMap((term) => Array.from(tokenSet(term)));
+    const listings = (payload.assistanceListingsData || []).map((listing) => {
+      const overview = (listing.overview || {}) as Record<string, unknown>;
+      const organization = (listing.federalOrganization || {}) as Record<string, unknown>;
+      return { title: String(listing.title || "Assistance listing"), agency: String(organization.agency || organization.department || "Federal agency"), listingId: String(listing.assistanceListingId || "Not stated"), description: cleanText(String(overview.assistanceListingDescription || overview.objective || ""), 500), sourceUrl: String(listing.programWebPage || "https://sam.gov/assistance-listings") };
+    }).filter((listing) => terms.some((term) => tokenSet(`${listing.title} ${listing.description}`).has(term))).slice(0, 5);
+    return listings.length
+      ? { status: "available", searchTerms, message: "SAM.gov Assistance Listings returned broader active-assistance program context for the translated research terms.", listings }
+      : { status: "partial", searchTerms, message: "SAM.gov Assistance Listings was queried, but the returned catalog page did not contain a strong term match. Search official program links directly.", listings: [] };
+  } catch {
+    return { status: "partial", searchTerms, message: "SAM.gov Assistance Listings could not be retrieved for this report. This does not affect the live Grants.gov, USAspending, or SBIR research layers.", listings: [] };
+  }
+}
+
 export async function researchOpportunities(input: StartupInput): Promise<AgentReport> {
   const websiteEvidence = await inspectPublicWebsite(input.domain);
   const profile = await buildStartupProfile(input, websiteEvidence);
   const researchPlan = await makeResearchPlan(profile);
+  const samEnrichment = await getSamEnrichment(profile, researchPlan);
   const liveQueries = Array.from(new Set(researchPlan.searches.filter((item) => item.source === "Grants.gov").map((item) => item.query).concat(profile.governmentTerms).filter(Boolean))).slice(0, 5);
   const searched = await Promise.all(liveQueries.map(async (query) => ({ query, hits: await searchGrants(query).catch(() => []) })));
   const unique = new Map<string, GrantHit>();
@@ -534,10 +571,12 @@ export async function researchOpportunities(input: StartupInput): Promise<AgentR
       { label: "Investigated live opportunities", detail: `Searched live Grants.gov results and opened official detail records for ${shortlist.length} candidates.`, status: "complete" },
       { label: "Checked historical evidence", detail: historicalIntelligence.length ? `Queried USAspending for ${historicalIntelligence.length} relevant research term${historicalIntelligence.length === 1 ? "" : "s"}, including Utah evidence.` : "No historical USAspending evidence was returned for the shortlisted terms.", status: historicalIntelligence.length ? "complete" : "partial" },
       { label: "Applied R&D context", detail: "Matched official offline SBIR award and open-topic snapshots as reliable fallback context while the live SBIR API remains optional.", status: "complete" },
+      { label: "Checked broader assistance", detail: samEnrichment.message, status: samEnrichment.status === "unavailable" ? "partial" : "complete" },
     ],
     summary: { opportunityCount: opportunities.length, likelyFitCount: opportunities.filter((item) => item.tier === "Likely Fit").length, agencies: Array.from(new Set(opportunities.map((item) => item.agency))).slice(0, 6), closingSoonCount },
     opportunities, historicalIntelligence,
     sbirFallback: { status: "ready", matchedAwards: findSbirEvidence(profile).length, currentTopics: findSbirTopics(profile), source: "Official SBIR.gov award and open-topic snapshots", note: "The snapshots are reproducible fallbacks created from SBIR.gov public award data and public open-topic pages. The live SBIR API is treated as an optional enhancement because its documentation reports maintenance." },
+    samEnrichment,
     notices: ["PlainText.legal organizes public information for research. It does not determine eligibility, provide legal advice, or guarantee funding.", "Always verify the official notice, applicant requirements, deadline, and registration steps before relying on a recommendation."],
     sourceNotes: [
       { label: "Live opportunities — Grants.gov", url: "https://grants.gov/api/common/search2" },
