@@ -20,3 +20,4 @@
 - [x] Keep SAM.gov Assistance Listings as a clearly labeled optional enrichment path while SAM API-key issuance is unavailable; do not block live Grants.gov, USAspending, or SBIR-fallback research on it.
 - [x] Add a visible profile-extraction preview to the report so founders can inspect the parsed attributes and translated government terms alongside the research output.
 - [x] Add a dedicated demo-and-launch guide covering the demo script, live-data caveats, validation evidence, and Manus publishing steps.
+- [x] Replace the hero CTA buttons with an open search bar whose placeholder reads exactly “Enter your domain, or a description of your company” and routes either input type into the opportunity-research flow.
