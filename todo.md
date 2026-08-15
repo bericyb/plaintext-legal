@@ -38,3 +38,4 @@
 - [x] Add a visible mock founder email card to the How it works page and animate it upward as the final delivery step.
 - [x] Verify the How it works button navigates to /how-it-works and the final email-delivery animation is visible on desktop and mobile.
 - [x] Remove the disliked How it works link from the Automation section per the visual edit.
+- [x] Run and capture the five hackathon test cases: AI healthcare, advanced manufacturing/aerospace, climate/water, cybersecurity, and consumer/workforce technology.
