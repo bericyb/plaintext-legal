@@ -26,3 +26,5 @@
 - [x] Add an explicit client-side research timeout that exits the progress state into a retryable error instead of waiting indefinitely, and cover the timeout rule with an automated test.
 - [x] Add a prominent, compliant public explanation of the future automated pipeline from licensed domain events and authorized Utah registration events through research, Opportunity Map creation, and opted-in founder delivery.
 - [x] Replace the overly restrictive automation disclaimer with accurate language about public Utah business records, lawful public-record monitoring, and appropriately sourced founder outreach.
+- [x] Move the public-records and domain-event automation explainer directly beneath the hero, ahead of the founder intake and research-method sections.
+- [x] Remove the former lower-page automation markup and temporary CSS hiding rule so the visible top-of-page automation section is the only `#automation` anchor.
