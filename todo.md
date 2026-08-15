@@ -44,3 +44,6 @@
 - [x] Add a final server-side relevance screening agent after deterministic ranking, with structured demotion/removal decisions, safe fallback, audit explanations, and regression tests.
 - [x] Simplify the OpportunityReport prose section while preserving the action, concern, and verification cards, and add vertical spacing between those card groups.
 - [ ] Add a concise hackathon-judge README with the live demo URL, killer features, and automatic support-discovery vision, then push it to GitHub.
+- [ ] Revise README automatic support-discovery language to describe the implemented framework awaiting data-integration partners, then push the update to GitHub.
+- [ ] Revise README automatic support-discovery language to describe the implemented framework awaiting data-integration partners, then push the update to GitHub.
+- [ ] Ensure the README uses PlainText.legal’s own pitch and does not quote the hackathon briefing language.
