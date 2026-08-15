@@ -33,5 +33,7 @@
 - [x] Review the user-applied landing-page removals and manually simplify the unresolved Automation section elements before saving the visual-edit checkpoint.
 - [x] Resolve the final unresolved visual-editor removal in the Automation section and save a verified checkpoint.
 - [x] Make the automation narrative substantially taller and stack its four company-signal steps in a single vertical flow.
-- [ ] Add a How it works button and dedicated animated process page showing Utah company registration, public-data publication, PlainText research, report drafting, and mock founder email delivery.
+- [x] Add a How it works button and dedicated animated process page showing Utah company registration, public-data publication, PlainText research, report drafting, and mock founder email delivery.
 
+- [x] Add a visible mock founder email card to the How it works page and animate it upward as the final delivery step.
+- [x] Verify the How it works button navigates to /how-it-works and the final email-delivery animation is visible on desktop and mobile.
