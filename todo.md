@@ -40,3 +40,4 @@
 - [x] Remove the disliked How it works link from the Automation section per the visual edit.
 - [x] Run and capture the five hackathon test cases: AI healthcare, advanced manufacturing/aerospace, climate/water, cybersecurity, and consumer/workforce technology.
 - [x] Refine ranking to prioritize domain-specific relevance, penalize semantic mismatches, and favor false negatives over false positives; add regression validation for healthcare and climate/water.
+- [x] Rerun all five standardized challenge categories after conservative ranking refinement and capture updated report screenshots.
