@@ -8,7 +8,7 @@ Use the intake example below. Add the optional public domain only if the website
 
 > “We are a 15-person Utah digital health startup building AI-powered software that reduces administrative workload for hospital nurses. We have $1M ARR, raised seed capital, and need $500K–$2M for product development, clinical workflow research, and hospital pilots.”
 
-Submit the scan. Explain the visible research trail: the agent reads the startup context, translates startup language into government terminology, investigates live Grants.gov records, checks USAspending historical evidence including Utah award counts, and layers in SBIR/STTR R&D precedent and open topic / solicitation context. The profile-extraction panel makes the agent’s read of the company visible rather than opaque.
+Submit the scan. The founder is immediately taken to a dedicated **Agent research in progress** page rather than left on the form; this shows the research trail while the work completes. Explain the visible stages: the agent reads the startup context, translates startup language into government terminology, investigates live Grants.gov records, checks USAspending historical evidence including Utah award counts, and layers in SBIR/STTR R&D precedent and open topic / solicitation context. The profile-extraction panel makes the agent’s read of the company visible rather than opaque.
 
 Open the first opportunity card. Show its **tier**, the specific reason it was surfaced, the potential concerns, what the founder must verify, the action plan, direct official notice, historical award signal, and SBIR precedent. Emphasize that none of this is represented as an eligibility determination. Finally, use the opt-in email field to show that report association is voluntary and no public-contact harvesting is used.
 
@@ -25,7 +25,7 @@ The core live integrations are Grants.gov Search2/fetchOpportunity and USAspendi
 | Type check | `pnpm check` passes. |
 | Unit tests | `pnpm test` passes with six tests covering fallback expansion, scoring / explanation guardrails, SBIR award and open-topic context, safe domain handling, report persistence, and auth logout. |
 | Live agent smoke test | A Utah AI-health startup scan returned seven live Grants.gov candidates, three USAspending evidence investigations, five SBIR historical matches, and four current SBIR topic / solicitation matches. |
-| Visual review | Landing, Scan a company, and persisted report views were checked at desktop and mobile widths. |
+| Visual review | Landing, dedicated agent-progress, Scan a company, and persisted report views were checked at desktop and mobile widths. A live founder description was verified to redirect immediately to the progress page and then to a persisted Opportunity Map. |
 
 ## Publishing on Manus
 

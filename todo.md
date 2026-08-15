@@ -21,3 +21,6 @@
 - [x] Add a visible profile-extraction preview to the report so founders can inspect the parsed attributes and translated government terms alongside the research output.
 - [x] Add a dedicated demo-and-launch guide covering the demo script, live-data caveats, validation evidence, and Manus publishing steps.
 - [x] Replace the hero CTA buttons with an open search bar whose placeholder reads exactly “Enter your domain, or a description of your company” and routes either input type into the opportunity-research flow.
+- [x] Fix the hero-search submission so it cannot remain indefinitely pending and instead returns a persisted report or a clear recoverable timeout/error state.
+- [x] Redirect every new research submission to a dedicated agent-progress page that shows live research stages and transitions automatically to the final Government Opportunity Map or a recoverable error state.
+- [x] Add an explicit client-side research timeout that exits the progress state into a retryable error instead of waiting indefinitely, and cover the timeout rule with an automated test.

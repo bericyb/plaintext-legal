@@ -6,6 +6,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import OpportunityReport from "./pages/OpportunityReport";
+import ResearchProgress from "./pages/ResearchProgress";
 import ScanCompany from "./pages/ScanCompany";
 
 function Router() {
@@ -13,6 +14,7 @@ function Router() {
   return (
     <Switch>
       <Route path={"/"} component={Home} />
+      <Route path={"/research"} component={ResearchProgress} />
       <Route path={"/report/:reportId"} component={OpportunityReport} />
       <Route path={"/scan"} component={ScanCompany} />
       <Route path={"/404"} component={NotFound} />
