@@ -31,3 +31,5 @@
 - [x] Replace the abstract sample report with a concrete, source-verified live federal opportunity that shows its official identifier, dollar funding figure, agency, deadline, and relevant eligibility context while removing agency and next-action counters.
 - [x] Simplify the live-grant sample card by adding an explicit “Example available grant” header and removing the agent-flag callout and external-record button.
 - [x] Review the user-applied landing-page removals and manually simplify the unresolved Automation section elements before saving the visual-edit checkpoint.
+- [x] Resolve the final unresolved visual-editor removal in the Automation section and save a verified checkpoint.
+- [x] Make the automation narrative substantially taller and stack its four company-signal steps in a single vertical flow.
