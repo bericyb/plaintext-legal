@@ -72,10 +72,9 @@ function OpportunityCard({ opportunity, index }: { opportunity: ReportPayload["o
     {open && <div className="border-t border-ink/10 p-5">
       <div className="grid gap-5 lg:grid-cols-[1.25fr_.75fr]">
         <div>
-          <p className="mb-4 text-[15px] leading-7 text-ink/70">{opportunity.description}</p>
           <DetailList icon="check" title="Why the agent surfaced this" items={[opportunity.whyFit]} />
           <div className="mt-4 grid gap-4 md:grid-cols-2"><DetailList icon="alert" title="Potential concerns" tone="warn" items={opportunity.concerns} /><DetailList icon="verify" title="What to verify" items={opportunity.verify} /></div>
-          <DetailList icon="check" title="Action plan" items={opportunity.nextSteps} />
+          <div className="mt-4"><DetailList icon="check" title="Action plan" items={opportunity.nextSteps} /></div>
         </div>
         <aside className="space-y-4">
           <div className="rounded-xl bg-ink p-4 text-white"><div className="font-mono text-[10px] uppercase tracking-[.15em] text-white/50">Opportunity snapshot</div><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-3"><dt className="text-white/55">Potential value</dt><dd className="text-right font-medium">{opportunity.value}</dd></div><div className="flex justify-between gap-3"><dt className="text-white/55">Opening date</dt><dd className="text-right font-medium">{opportunity.openDate}</dd></div><div><dt className="mb-1 text-white/55">Official eligibility text</dt><dd className="text-xs leading-relaxed text-white/85">{opportunity.eligibility.join(" · ")}</dd></div></dl><a className="mt-5 flex items-center justify-between rounded-lg bg-white/10 px-3 py-2.5 text-sm font-semibold hover:bg-white/15" href={opportunity.sourceUrl} target="_blank" rel="noreferrer">Open official notice <ExternalLink className="h-4 w-4" /></a></div>
