@@ -24,3 +24,4 @@
 - [x] Fix the hero-search submission so it cannot remain indefinitely pending and instead returns a persisted report or a clear recoverable timeout/error state.
 - [x] Redirect every new research submission to a dedicated agent-progress page that shows live research stages and transitions automatically to the final Government Opportunity Map or a recoverable error state.
 - [x] Add an explicit client-side research timeout that exits the progress state into a retryable error instead of waiting indefinitely, and cover the timeout rule with an automated test.
+- [x] Add a prominent, compliant public explanation of the future automated pipeline from licensed domain events and authorized Utah registration events through research, Opportunity Map creation, and opted-in founder delivery.
