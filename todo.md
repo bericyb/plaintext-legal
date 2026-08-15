@@ -29,3 +29,4 @@
 - [x] Move the public-records and domain-event automation explainer directly beneath the hero, ahead of the founder intake and research-method sections.
 - [x] Remove the former lower-page automation markup and temporary CSS hiding rule so the visible top-of-page automation section is the only `#automation` anchor.
 - [x] Replace the abstract sample report with a concrete, source-verified live federal opportunity that shows its official identifier, dollar funding figure, agency, deadline, and relevant eligibility context while removing agency and next-action counters.
+- [x] Simplify the live-grant sample card by adding an explicit “Example available grant” header and removing the agent-flag callout and external-record button.
