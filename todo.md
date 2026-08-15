@@ -43,3 +43,4 @@
 - [x] Rerun all five standardized challenge categories after conservative ranking refinement and capture updated report screenshots.
 - [x] Add a final server-side relevance screening agent after deterministic ranking, with structured demotion/removal decisions, safe fallback, audit explanations, and regression tests.
 - [x] Simplify the OpportunityReport prose section while preserving the action, concern, and verification cards, and add vertical spacing between those card groups.
+- [ ] Add a concise hackathon-judge README with the live demo URL, killer features, and automatic support-discovery vision, then push it to GitHub.
