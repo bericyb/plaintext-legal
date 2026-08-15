@@ -102,6 +102,7 @@ export type Opportunity = {
   nextSteps: string[];
   history?: HistoryEvidence;
   sbirEvidence: SbirEvidence[];
+  screening?: { decision: ScreeningDecision["decision"]; confidence: ScreeningDecision["confidence"]; reason: string; checks: string[] };
 };
 
 export type AgentReport = {
@@ -474,6 +475,103 @@ export function buildOpportunity(profile: StartupProfile, hit: GrantHit, detail?
   };
 }
 
+export type ScreeningDecision = {
+  opportunityId: string;
+  decision: "keep" | "demote" | "remove";
+  confidence: "high" | "medium" | "low";
+  scoreAdjustment: number;
+  reason: string;
+  checks: string[];
+};
+
+function safeJson<T>(content: unknown): T | undefined {
+  if (typeof content !== "string") return undefined;
+  try { return JSON.parse(content) as T; } catch { return undefined; }
+}
+
+export function applyScreeningDecisions(opportunities: Opportunity[], decisions: ScreeningDecision[]) {
+  const byId = new Map(decisions.map((decision) => [decision.opportunityId, decision]));
+  return opportunities
+    .map((opportunity) => {
+      const decision = byId.get(opportunity.id);
+      if (!decision) return opportunity;
+      const score = Math.max(0, Math.min(96, opportunity.score + Math.min(0, decision.scoreAdjustment)));
+      const tier: MatchTier = score >= 76 ? "Likely Fit" : score >= 55 ? "Potential Fit" : score >= 34 ? "Adjacent" : "Probably Not a Fit";
+      return {
+        ...opportunity,
+        score,
+        tier,
+        concerns: Array.from(new Set([...opportunity.concerns, `Final screening: ${decision.reason}`])),
+        screening: { decision: decision.decision, confidence: decision.confidence, reason: decision.reason, checks: decision.checks },
+      };
+    })
+    .filter((opportunity) => byId.get(opportunity.id)?.decision !== "remove")
+    .sort((a, b) => b.score - a.score);
+}
+
+async function screenOpportunityShortlist(profile: StartupProfile, opportunities: Opportunity[]): Promise<{ opportunities: Opportunity[]; status: "complete" | "fallback"; note: string }> {
+  if (!opportunities.length) return { opportunities, status: "complete", note: "No opportunities required final screening." };
+  const candidatePayload = opportunities.map((opportunity) => ({
+    opportunityId: opportunity.id,
+    title: opportunity.title,
+    agency: opportunity.agency,
+    deadline: opportunity.deadline,
+    tier: opportunity.tier,
+    score: opportunity.score,
+    description: opportunity.description.slice(0, 900),
+    eligibility: opportunity.eligibility.slice(0, 5),
+    matchedTerms: opportunity.matchedTerms,
+  }));
+  try {
+    const response = await invokeLLM({
+      model: "gpt-5-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are the final relevance and accuracy screener for a government-opportunity research report. Be conservative: prefer a false negative to a false positive. Review only the supplied official opportunity metadata; do not invent facts. KEEP only when the program clearly aligns with the startup domain and a plausible applicant pathway. DEMOTE when the topic is adjacent, eligibility is unclear, the program is institution-focused, stale, foreign-only, education-only, or otherwise requires substantial verification. REMOVE when it is plainly unrelated, closed/obsolete, or cannot reasonably support the startup's stated work. A decision is a research-priority judgment, not an eligibility determination. Output JSON only.",
+        },
+        { role: "user", content: JSON.stringify({ startupProfile: { industry: profile.industry, technology: profile.technology, coreProblem: profile.coreProblem, targetCustomers: profile.targetCustomers, location: profile.location, capitalNeed: profile.capitalNeed, rAndD: profile.rAndD }, opportunities: candidatePayload }) },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "opportunity_screening",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              decisions: {
+                type: "array",
+                items: { type: "object", properties: {
+                  opportunityId: { type: "string" },
+                  decision: { type: "string", enum: ["keep", "demote", "remove"] },
+                  confidence: { type: "string", enum: ["high", "medium", "low"] },
+                  scoreAdjustment: { type: "integer", minimum: -40, maximum: 0 },
+                  reason: { type: "string" },
+                  checks: { type: "array", items: { type: "string" } },
+                }, required: ["opportunityId", "decision", "confidence", "scoreAdjustment", "reason", "checks"], additionalProperties: false },
+              },
+            },
+            required: ["decisions"], additionalProperties: false,
+          },
+        },
+      },
+    });
+    const parsed = safeJson<{ decisions?: ScreeningDecision[] }>(response.choices[0]?.message?.content);
+    const validIds = new Set(opportunities.map((opportunity) => opportunity.id));
+    const decisions = Array.isArray(parsed?.decisions) ? parsed.decisions.filter((decision) => validIds.has(decision.opportunityId)).map((decision) => ({
+      ...decision,
+      scoreAdjustment: Math.min(0, Math.max(-40, Number(decision.scoreAdjustment) || 0)),
+      reason: String(decision.reason || "Final reviewer found insufficient evidence for a stronger match."),
+      checks: Array.isArray(decision.checks) ? decision.checks.map(String).slice(0, 5) : [],
+    })) : [];
+    if (decisions.length !== opportunities.length) return { opportunities, status: "fallback", note: "The final relevance screener returned an incomplete decision set, so deterministic ranking was preserved." };
+    return { opportunities: applyScreeningDecisions(opportunities, decisions), status: "complete", note: "A conservative final relevance screen reviewed domain fit, applicant pathway, freshness, and semantic mismatch before report assembly." };
+  } catch {
+    return { opportunities, status: "fallback", note: "The final relevance screener was unavailable, so deterministic conservative ranking was preserved." };
+  }
+}
+
 function normalizedAmount(value: unknown) {
   const amount = Number(value);
   return Number.isFinite(amount) && amount > 0 ? amount : 0;
@@ -592,7 +690,9 @@ export async function researchOpportunities(input: StartupInput): Promise<AgentR
   searched.flatMap((entry) => entry.hits).forEach((hit) => unique.set(String(hit.id), hit));
   const shortlist = Array.from(unique.values()).slice(0, 10);
   const details = await Promise.all(shortlist.map((hit) => grantDetail(hit.id)));
-  const opportunities = shortlist.map((hit, index) => buildOpportunity(profile, hit, details[index])).sort((a, b) => b.score - a.score).slice(0, 7);
+  const deterministicShortlist = shortlist.map((hit, index) => buildOpportunity(profile, hit, details[index])).sort((a, b) => b.score - a.score).slice(0, 10);
+  const screening = await screenOpportunityShortlist(profile, deterministicShortlist);
+  const opportunities = screening.opportunities.slice(0, 7);
   const historicalTerms = Array.from(new Set(opportunities.flatMap((opportunity) => opportunity.matchedTerms).filter((term) => term.length >= 4))).slice(0, 3);
   const historicalIntelligence = (await Promise.all(historicalTerms.map(awardIntelligence))).filter((item): item is HistoryEvidence => Boolean(item));
   opportunities.forEach((opportunity, index) => {
@@ -612,6 +712,7 @@ export async function researchOpportunities(input: StartupInput): Promise<AgentR
       { label: "Checked historical evidence", detail: historicalIntelligence.length ? `Queried USAspending for ${historicalIntelligence.length} relevant research term${historicalIntelligence.length === 1 ? "" : "s"}, including Utah evidence.` : "No historical USAspending evidence was returned for the shortlisted terms.", status: historicalIntelligence.length ? "complete" : "partial" },
       { label: "Applied R&D context", detail: "Matched official offline SBIR award and open-topic snapshots as reliable fallback context while the live SBIR API remains optional.", status: "complete" },
       { label: "Checked broader assistance", detail: samEnrichment.message, status: samEnrichment.status === "unavailable" ? "partial" : "complete" },
+      { label: "Final relevance screen", detail: screening.note, status: screening.status === "complete" ? "complete" : "partial" },
     ],
     summary: { opportunityCount: opportunities.length, likelyFitCount: opportunities.filter((item) => item.tier === "Likely Fit").length, agencies: Array.from(new Set(opportunities.map((item) => item.agency))).slice(0, 6), closingSoonCount },
     opportunities, historicalIntelligence,

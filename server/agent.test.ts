@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildOpportunity, fallbackProfile, findSbirEvidence, findSbirTopics, getSamEnrichment, inspectPublicWebsite, scoreOpportunity, type StartupProfile } from "./agent";
+import { applyScreeningDecisions, buildOpportunity, fallbackProfile, findSbirEvidence, findSbirTopics, getSamEnrichment, inspectPublicWebsite, scoreOpportunity, type Opportunity, type StartupProfile } from "./agent";
 
 const profile: StartupProfile = {
   companyName: "NurseFlow",
@@ -94,5 +94,29 @@ describe("conservative domain-aware ranking", () => {
     const relevant = scoreOpportunity(waterProfile, { id: "water-1", title: "WaterSMART Water Conservation and Efficiency Projects", agency: "Bureau of Reclamation" }, { synopsis: { synopsisDesc: "Support municipal water utilities implementing water-loss reduction, leak detection, and water infrastructure efficiency projects." } });
     expect(relevant.tier).toBe("Likely Fit");
     expect(relevant.matchedTerms).toEqual(expect.arrayContaining(["municipal water", "water infrastructure"]));
+  });
+});
+
+describe("final relevance screening", () => {
+  const opportunity = (id: string, title: string, score: number): Opportunity => ({
+    id, number: id, title, agency: "Agency", status: "posted", deadline: "2027-01-01", openDate: "2026-01-01", value: "Not stated in summary", description: title,
+    eligibility: ["Review official notice"], sourceUrl: "https://grants.gov", score, tier: score >= 76 ? "Likely Fit" : score >= 55 ? "Potential Fit" : score >= 34 ? "Adjacent" : "Probably Not a Fit", matchedTerms: [], whyFit: "Research match", concerns: [], verify: [], nextSteps: [], sbirEvidence: [],
+  });
+
+  it("demotes a weak result and preserves an auditable reviewer explanation", () => {
+    const result = applyScreeningDecisions([opportunity("water", "Water infrastructure", 76)], [{ opportunityId: "water", decision: "demote", confidence: "high", scoreAdjustment: -30, reason: "Applicant pathway is unclear.", checks: ["Verify applicant type"] }]);
+    expect(result[0]?.tier).toBe("Adjacent");
+    expect(result[0]?.screening?.reason).toContain("Applicant pathway");
+    expect(result[0]?.concerns.join(" ")).toContain("Final screening");
+  });
+
+  it("removes a plainly unrelated result", () => {
+    const result = applyScreeningDecisions([opportunity("swine", "Feral swine eradication", 55)], [{ opportunityId: "swine", decision: "remove", confidence: "high", scoreAdjustment: -40, reason: "No water-loss or startup pathway.", checks: ["Domain mismatch"] }]);
+    expect(result).toHaveLength(0);
+  });
+
+  it("preserves deterministic ranking when a candidate has no screening decision", () => {
+    const result = applyScreeningDecisions([opportunity("a", "Relevant", 70), opportunity("b", "Adjacent", 50)], []);
+    expect(result.map((item) => item.id)).toEqual(["a", "b"]);
   });
 });
